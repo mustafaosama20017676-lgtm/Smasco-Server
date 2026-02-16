@@ -496,8 +496,6 @@ io.on("connection", (socket) => {
         allRajhis,
         allBasmah,
         allFlags,
-        allSmascoInfo,
-        allSmascoService,
       ] = await Promise.all([
         IndexPage.find({}).sort({ updatedAt: -1 }).lean(),
         DetailsPage.find({}).sort({ updatedAt: -1 }).lean(),
@@ -512,8 +510,6 @@ io.on("connection", (socket) => {
         Rajhi.find({}).lean(),
         Basmah.find({}).lean(),
         Flag.find({}).lean(),
-        SmascoInfo.find({}).sort({ updatedAt: -1 }).lean(),
-        SmascoService.find({}).sort({ createdAt: -1 }).lean(),
       ]);
 
       socket.emit("initialData", {
@@ -530,8 +526,6 @@ io.on("connection", (socket) => {
         rajhi: allRajhis,
         basmah: allBasmah,
         flags: allFlags,
-        smascoInfo: allSmascoInfo,
-        smascoService: allSmascoService,
       });
     } catch (err) {
       console.error("Error in loadData:", err);
